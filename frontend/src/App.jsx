@@ -4,6 +4,7 @@ import MetricCards from "./components/MetricCards";
 import TokenRateChart from "./components/TokenRateChart";
 import LatencyTimeline from "./time/LatencyTimeline";
 import HistoryPanel from "./time/HistoryPanel";
+import CompareRunner from "./components/CompareRunner";
 
 const EMPTY_METRICS = {
   ttft: null,
@@ -16,6 +17,7 @@ const EMPTY_METRICS = {
 };
 
 export default function App() {
+  const [mode, setMode] = useState("single");
   const [metrics, setMetrics] = useState(EMPTY_METRICS);
   const [history, setHistory] = useState([]);
   const startRef = useRef(null);
@@ -90,31 +92,56 @@ export default function App() {
             <span className="logo-text">InferBench</span>
           </div>
           <span className="header-sub">Local LLM Benchmarking Dashboard</span>
+          <div className="mode-tabs">
+            <button
+              className={`tab-btn ${mode === "single" ? "active" : ""}`}
+              onClick={() => setMode("single")}
+            >
+              Single
+            </button>
+            <button
+              className={`tab-btn ${mode === "compare" ? "active" : ""}`}
+              onClick={() => setMode("compare")}
+            >
+              Compare
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="app-main">
-        <div className="left-col">
-          <BenchmarkRunner
-            onStart={handleStart}
-            onToken={handleToken}
-            onEnd={handleEnd}
-            onError={handleError}
-            status={metrics.status}
-          />
-          <MetricCards metrics={metrics} />
-          <LatencyTimeline metrics={metrics} />
-        </div>
-        <div className="right-col">
-          <TokenRateChart snapshots={metrics.snapshots} status={metrics.status} />
-          {metrics.output && (
-            <div className="output-box">
-              <div className="section-label">Model Output</div>
-              <pre className="output-text">{metrics.output}</pre>
+        {mode === "single" ? (
+          <>
+            <div className="left-col">
+              <BenchmarkRunner
+                onStart={handleStart}
+                onToken={handleToken}
+                onEnd={handleEnd}
+                onError={handleError}
+                status={metrics.status}
+              />
+              <MetricCards metrics={metrics} />
+              <LatencyTimeline metrics={metrics} />
             </div>
-          )}
-          <HistoryPanel history={history} />
-        </div>
+            <div className="right-col">
+              <TokenRateChart
+                snapshots={metrics.snapshots}
+                status={metrics.status}
+              />
+              {metrics.output && (
+                <div className="output-box">
+                  <div className="section-label">Model Output</div>
+                  <pre className="output-text">{metrics.output}</pre>
+                </div>
+              )}
+              <HistoryPanel history={history} />
+            </div>
+          </>
+        ) : (
+          <div className="compare-col">
+            <CompareRunner />
+          </div>
+        )}
       </main>
     </div>
   );

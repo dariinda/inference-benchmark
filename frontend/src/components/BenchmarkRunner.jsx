@@ -83,7 +83,7 @@ export default function BenchmarkRunner({
             let chunk = "";
 
             if (provider === "ollama") {
-              chunk = obj.response ?? "";
+              const chunk = (obj.thinking || obj.response) ?? "";
               if (chunk) onToken(chunk);
               if (obj.done) {
                 onEnd({ provider, model, baseUrl, prompt, maxTokens });
@@ -97,7 +97,9 @@ export default function BenchmarkRunner({
                 return;
               }
             }
-          } catch {}
+          } catch (e) {
+            console.log("parse error:", e.message, "line was:", jsonStr);
+          }
         }
       }
 
