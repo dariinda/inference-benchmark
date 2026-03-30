@@ -5,11 +5,19 @@ const PROVIDERS = [
   { id: "lmstudio", label: "LM Studio", defaultUrl: "http://localhost:1234" },
 ];
 
-export default function BenchmarkRunner({ onStart, onToken, onEnd, onError, status }) {
+export default function BenchmarkRunner({
+  onStart,
+  onToken,
+  onEnd,
+  onError,
+  status,
+}) {
   const [provider, setProvider] = useState("ollama");
   const [baseUrl, setBaseUrl] = useState("http://localhost:11434");
   const [model, setModel] = useState("");
-  const [prompt, setPrompt] = useState("Explain the theory of relativity in detail.");
+  const [prompt, setPrompt] = useState(
+    "Explain the theory of relativity in detail."
+  );
   const [maxTokens, setMaxTokens] = useState(256);
   const abortRef = { current: null };
 
@@ -21,36 +29,31 @@ export default function BenchmarkRunner({ onStart, onToken, onEnd, onError, stat
     setBaseUrl(p.defaultUrl);
   };
 
+  const BACKEND_URL = "http://localhost:8000";
+
   const runBenchmark = async () => {
-    if (!model.trim()) { onError("Please enter a model name."); return; }
+    if (!model.trim()) {
+      onError("Please enter a model name.");
+      return;
+    }
     onStart();
 
     try {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
-      let response;
-
-      if (provider === "ollama") {
-        response = await fetch(`${baseUrl}/api/generate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model, prompt, stream: true, options: { num_predict: maxTokens } }),
-          signal: ctrl.signal,
-        });
-      } else {
-        response = await fetch(`${baseUrl}/v1/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: prompt }],
-            stream: true,
-            max_tokens: maxTokens,
-          }),
-          signal: ctrl.signal,
-        });
-      }
+      const response = await fetch(`${BACKEND_URL}/inference/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt,
+          max_tokens: maxTokens,
+          provider,
+          base_url: baseUrl,
+        }),
+        signal: ctrl.signal,
+      });
 
       if (!response.ok) {
         const txt = await response.text();
@@ -82,7 +85,10 @@ export default function BenchmarkRunner({ onStart, onToken, onEnd, onError, stat
             if (provider === "ollama") {
               chunk = obj.response ?? "";
               if (chunk) onToken(chunk);
-              if (obj.done) { onEnd({ provider, model, baseUrl, prompt, maxTokens }); return; }
+              if (obj.done) {
+                onEnd({ provider, model, baseUrl, prompt, maxTokens });
+                return;
+              }
             } else {
               chunk = obj.choices?.[0]?.delta?.content ?? "";
               if (chunk) onToken(chunk);
@@ -97,7 +103,8 @@ export default function BenchmarkRunner({ onStart, onToken, onEnd, onError, stat
 
       onEnd({ provider, model, baseUrl, prompt, maxTokens });
     } catch (err) {
-      if (err.name !== "AbortError") onError(`Connection error: ${err.message}`);
+      if (err.name !== "AbortError")
+        onError(`Connection error: ${err.message}`);
     }
   };
 
@@ -141,7 +148,9 @@ export default function BenchmarkRunner({ onStart, onToken, onEnd, onError, stat
             value={model}
             onChange={(e) => setModel(e.target.value)}
             disabled={running}
-            placeholder={provider === "ollama" ? "llama3.2, mistral…" : "model-identifier"}
+            placeholder={
+              provider === "ollama" ? "llama3.2, mistral…" : "model-identifier"
+            }
           />
         </div>
 
@@ -157,7 +166,9 @@ export default function BenchmarkRunner({ onStart, onToken, onEnd, onError, stat
         </div>
 
         <div className="field">
-          <label className="field-label">Max Tokens: <strong>{maxTokens}</strong></label>
+          <label className="field-label">
+            Max Tokens: <strong>{maxTokens}</strong>
+          </label>
           <input
             type="range"
             min={64}
