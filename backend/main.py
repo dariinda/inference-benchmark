@@ -3,6 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import httpx
 from pydantic import BaseModel
+import os
+from supabase import create_client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+supabase = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_KEY")
+)
 
 app = FastAPI(title="InferBench API")
 
@@ -23,6 +33,22 @@ class InferenceRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.post("/results")
+async def save_result(result: dict):
+    try:
+        data = supabase.table("benchmark_results").insert(result).execute()
+        return {"success": True, "data": data.data}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/results")
+async def get_results():
+    try:
+        data = supabase.table("benchmark_results").select("*").order("timestamp", desc=True).limit(50).execute()
+        return {"results": data.data}
+    except Exception as e:
+        return {"results": [], "error": str(e)}
 
 @app.post("/inference/stream")
 async def stream_inference(req: InferenceRequest):

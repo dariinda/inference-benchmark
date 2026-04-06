@@ -24,12 +24,14 @@ export default function App() {
   const firstTokenRef = useRef(null);
   const tokenCountRef = useRef(0);
   const outputRef = useRef("");
+  const endCalledRef = useRef(false);
 
   const handleStart = useCallback(() => {
     startRef.current = performance.now();
     firstTokenRef.current = null;
     tokenCountRef.current = 0;
     outputRef.current = "";
+    endCalledRef.current = false;
     setMetrics({ ...EMPTY_METRICS, status: "running" });
   }, []);
 
@@ -54,10 +56,12 @@ export default function App() {
   }, []);
 
   const handleEnd = useCallback((config) => {
+    if (endCalledRef.current) return;
+    endCalledRef.current = true;
     const now = performance.now();
     const totalLatency = Math.round(now - startRef.current);
     const finalTps = parseFloat(
-      ((tokenCountRef.current / totalLatency) * 1000).toFixed(1)
+      ((tokenCountRef.current / totalLatency) * 1000).toFixed(1),
     );
     setMetrics((prev) => {
       const finalMetrics = {
@@ -68,13 +72,30 @@ export default function App() {
       };
       setHistory((h) => [
         {
-          id: Date.now(),
+          id: Date.now() + Math.random(),
           timestamp: new Date().toLocaleTimeString(),
           config,
           metrics: finalMetrics,
         },
         ...h.slice(0, 9),
       ]);
+
+      // Save to Supabase
+      console.log("Saving to Supabase:", config.model, finalTps);
+      fetch("http://localhost:8000/results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: config.model,
+          provider: config.provider,
+          prompt: config.prompt,
+          tokens_per_sec: finalTps,
+          ttft: prev.ttft,
+          total_latency: totalLatency,
+          token_count: tokenCountRef.current,
+        }),
+      }).catch(console.error);
+
       return finalMetrics;
     });
   }, []);
