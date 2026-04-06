@@ -24,6 +24,22 @@ class InferenceRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
+@app.get("/models")
+async def get_models(base_url: str = "http://localhost:11434", provider: str = "ollama"):
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            if provider == "ollama":
+                response = await client.get(f"{base_url}/api/tags")
+                data = response.json()
+                models = [m["name"] for m in data.get("models", [])]
+            else:
+                response = await client.get(f"{base_url}/v1/models")
+                data = response.json()
+                models = [m["id"] for m in data.get("data", [])]
+            return {"models": models}
+        except Exception as e:
+            return {"models": [], "error": str(e)}
+
 @app.post("/inference/stream")
 async def stream_inference(req: InferenceRequest):
     async def generate():

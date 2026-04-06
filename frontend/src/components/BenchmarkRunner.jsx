@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const PROVIDERS = [
   { id: "ollama", label: "Ollama", defaultUrl: "http://localhost:11434" },
@@ -16,12 +16,31 @@ export default function BenchmarkRunner({
   const [baseUrl, setBaseUrl] = useState("http://localhost:11434");
   const [model, setModel] = useState("");
   const [prompt, setPrompt] = useState(
-    "Explain the theory of relativity in detail."
+    "Explain the theory of relativity in detail.",
   );
   const [maxTokens, setMaxTokens] = useState(256);
   const abortRef = { current: null };
 
   const running = status === "running";
+
+  const [availableModels, setAvailableModels] = useState([]);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:8000/models?provider=${provider}&base_url=${encodeURIComponent(
+            baseUrl,
+          )}`,
+        );
+        const data = await res.json();
+        setAvailableModels(data.models || []);
+      } catch {
+        setAvailableModels([]);
+      }
+    };
+    fetchModels();
+  }, [provider, baseUrl]);
 
   const handleProviderChange = (id) => {
     setProvider(id);
@@ -102,8 +121,6 @@ export default function BenchmarkRunner({
           }
         }
       }
-
-      onEnd({ provider, model, baseUrl, prompt, maxTokens });
     } catch (err) {
       if (err.name !== "AbortError")
         onError(`Connection error: ${err.message}`);
@@ -145,15 +162,33 @@ export default function BenchmarkRunner({
 
         <div className="field">
           <label className="field-label">Model Name</label>
-          <input
-            className="field-input"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={running}
-            placeholder={
-              provider === "ollama" ? "llama3.2, mistral…" : "model-identifier"
-            }
-          />
+          {availableModels.length > 0 ? (
+            <select
+              className="field-input"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={running}
+            >
+              <option value="">Select a model...</option>
+              {availableModels.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="field-input"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={running}
+              placeholder={
+                provider === "ollama"
+                  ? "llama3.2, mistral…"
+                  : "model-identifier"
+              }
+            />
+          )}
         </div>
 
         <div className="field full-width">
